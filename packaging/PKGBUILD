@@ -2,31 +2,33 @@
 # Contributor: ArchFinder project
 pkgname=archfinder
 pkgver=0.1.2
-pkgrel=1
+pkgrel=2
 pkgdesc="Fast CLI tool with a terminal UI to find and reclaim unused files and folders on Arch Linux"
 arch=('x86_64' 'aarch64')
 url="https://github.com/farbod2/ArchFinder"
 license=('MIT')
 depends=('glibc' 'gcc-libs')
 makedepends=('cargo' 'git')
+# GitHub tag archives extract as "ArchFinder-<version>" (repo name, capital A)
+_reponame=ArchFinder
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP') # update when tagging; or use UPDATING below
+sha256sums=('SKIP') # update with updpkgsums before submitting to the AUR
 options=('!lto')
 
 build() {
-  cd "$pkgname-$pkgver"
+  cd "$_reponame-$pkgver"
   export RUSTUP_TOOLCHAIN=stable
   export CARGO_TARGET_DIR=target
   cargo build --release --locked --all-features
 }
 
 check() {
-  cd "$pkgname-$pkgver"
+  cd "$_reponame-$pkgver"
   ./target/release/archfinder --version
 }
 
 package() {
-  cd "$pkgname-$pkgver"
+  cd "$_reponame-$pkgver"
   install -Dm755 target/release/archfinder "$pkgdir/usr/bin/archfinder"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
