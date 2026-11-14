@@ -25,6 +25,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     match &app.popup {
         Popup::None => {}
         Popup::Help => popups::draw_help(f),
+        Popup::About => popups::draw_about(f),
         Popup::Confirm { .. } => popups::draw_confirm(f, app),
         Popup::Details(_) => popups::draw_details(f, app),
         Popup::Message(_) => popups::draw_message(f, app),
@@ -151,7 +152,9 @@ fn draw_table(f: &mut Frame, app: &mut App, area: Rect) {
         .skip(app.offset)
         .take(rows_height)
         .map(|&i| {
-            let e = &app.entries[i];
+            let Some(e) = app.entries.get(i) else {
+                return Row::new([""]);
+            };
             let checked = if app.selected.contains(&i) { "[x] " } else { "[ ] " };
             let path_str = shorten(&e.path.display().to_string(), max_w);
             let is_cursor = app.visible.get(app.cursor) == Some(&i);
@@ -237,7 +240,7 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
 fn draw_keybinds(f: &mut Frame, app: &App, area: Rect) {
     let sel = app.selected.len();
     let binds = format!(
-        "1/2/3 mode · r scan · j/k move · space select ({sel}) · a all · A none · s sort · / filter · t trash · d details · ? help · q quit"
+        "1/2/3 mode · r scan · j/k move · space select ({sel}) · a all · A none · s sort · / filter · t trash · d details · i about · ? help · q quit"
     );
     f.render_widget(
         ratatui::widgets::Paragraph::new(Line::from(binds))

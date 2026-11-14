@@ -19,6 +19,7 @@ pub enum TerminalEvent {
 pub enum Popup {
     None,
     Help,
+    About,
     Confirm { entries: Vec<Entry>, total: u64 },
     Details(usize),
     Message(String),
@@ -80,6 +81,7 @@ impl App {
 
     pub fn start_scan(&mut self) {
         if self.scanning {
+            self.status = "Scan already in progress…".into();
             return;
         }
         let (tx, rx) = mpsc::channel();
@@ -88,6 +90,7 @@ impl App {
         self.scanning = true;
         self.entries.clear();
         self.selected.clear();
+        self.visible.clear();
         self.cursor = 0;
         self.offset = 0;
         self.status = "Scanning…".into();
@@ -290,6 +293,12 @@ impl App {
                 }
                 _ => {}
             },
+            Popup::About => match key.code {
+                KeyCode::Esc | KeyCode::Char('q') | KeyCode::Enter | KeyCode::Char('i') => {
+                    self.popup = Popup::None
+                }
+                _ => {}
+            },
             Popup::Confirm { .. } => match key.code {
                 KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('q') => self.popup = Popup::None,
                 KeyCode::Enter | KeyCode::Char('y') => self.confirm_trash(),
@@ -355,6 +364,7 @@ impl App {
             KeyCode::Char('t') => self.open_confirm(),
             KeyCode::Char('d') => self.show_details(),
             KeyCode::Char('?') => self.popup = Popup::Help,
+            KeyCode::Char('i') => self.popup = Popup::About,
             _ => {}
         }
     }

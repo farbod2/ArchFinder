@@ -43,6 +43,7 @@ pub fn draw_help(f: &mut Frame) {
         Line::from("  1 / 2 / 3          switch mode, r scans"),
         Line::from("  s                  cycle sort (size/age/name/path)"),
         Line::from("  /                  filter, Esc clears filter"),
+        Line::from("  i                  about"),
         Line::from("  q                  quit"),
         Line::from(""),
         Line::from(Span::styled(
@@ -147,6 +148,69 @@ fn chrono_fmt(secs: i64) -> String {
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
     let y = if m <= 2 { y + 1 } else { y };
     format!("{y:04}-{m:02}-{d:02} {h:02}:{mi:02}:{s:02} UTC")
+}
+
+pub fn draw_about(f: &mut Frame) {
+    let version = env!("CARGO_PKG_VERSION");
+    let area = centered(62, 12, f);
+    let pad = "  ";
+    let mut lines = Vec::new();
+    // centered title
+    let title = "⚡ ArchFinder";
+    let tw = (area.width as usize).saturating_sub(4);
+    let pad_title = " ".repeat((tw.saturating_sub(title.chars().count())) / 2);
+    lines.push(Line::from(Span::styled(
+        format!("{pad_title}{title}"),
+        Style::default()
+            .fg(Color::Magenta)
+            .add_modifier(Modifier::BOLD),
+    )));
+    lines.push(Line::from(""));
+
+    let about = "Find and reclaim unused files and folders on Arch Linux.";
+    lines.push(Line::from(format!("{pad}{about}")));
+    lines.push(Line::from(""));
+    lines.push(Line::from(vec![
+        Span::styled(format!("{pad}Author   "), Style::default().fg(Color::DarkGray)),
+        Span::raw("farbod2"),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled(format!("{pad}GitHub   "), Style::default().fg(Color::DarkGray)),
+        Span::styled(
+            "github.com/farbod2/ArchFinder",
+            Style::default().fg(Color::Cyan),
+        ),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled(format!("{pad}Version  "), Style::default().fg(Color::DarkGray)),
+        Span::raw(format!("v{version}")),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled(format!("{pad}License  "), Style::default().fg(Color::DarkGray)),
+        Span::raw("GPL-3.0-or-later"),
+    ]));
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        format!("{pad}This program comes with ABSOLUTELY NO WARRANTY;"),
+        Style::default().fg(Color::DarkGray),
+    )));
+    lines.push(Line::from(Span::styled(
+        format!("{pad}redistribute it under the GNU GPL v3+."),
+        Style::default().fg(Color::DarkGray),
+    )));
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        "press i / Esc to close",
+        Style::default().fg(Color::DarkGray),
+    )));
+
+    f.render_widget(Clear, area);
+    f.render_widget(
+        Paragraph::new(Text::from(lines))
+            .block(box_block("About"))
+            .wrap(Wrap { trim: false }),
+        area,
+    );
 }
 
 pub fn draw_message(f: &mut Frame, app: &App) {

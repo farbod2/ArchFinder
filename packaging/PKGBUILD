@@ -1,12 +1,12 @@
 # Maintainer: farbod2 <farbod2@users.noreply.github.com>
 # Contributor: ArchFinder project
 pkgname=archfinder
-pkgver=0.1.2
-pkgrel=2
+pkgver=0.1.3
+pkgrel=1
 pkgdesc="Fast CLI tool with a terminal UI to find and reclaim unused files and folders on Arch Linux"
 arch=('x86_64' 'aarch64')
 url="https://github.com/farbod2/ArchFinder"
-license=('MIT')
+license=('GPL-3.0-or-later')
 depends=('glibc' 'gcc-libs')
 makedepends=('cargo' 'git')
 # GitHub tag archives extract as "ArchFinder-<version>" (repo name, capital A)

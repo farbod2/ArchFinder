@@ -128,4 +128,15 @@ file back. When you're confident, empty the trash yourself.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+ArchFinder — find and reclaim unused files and folders on Arch Linux.
+Copyright (C) 2026 farbod2
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+details.
+
+Full text: [LICENSE](LICENSE) · https://www.gnu.org/licenses/
