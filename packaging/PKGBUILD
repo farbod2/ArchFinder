@@ -3,7 +3,7 @@
 pkgname=archfinder
 pkgver=0.1.2
 pkgrel=1
-pkgdesc="Fast, keyboard-driven TUI to find and reclaim unused files and folders on Arch Linux"
+pkgdesc="Fast CLI tool with a terminal UI to find and reclaim unused files and folders on Arch Linux"
 arch=('x86_64' 'aarch64')
 url="https://github.com/farbod2/ArchFinder"
 license=('MIT')

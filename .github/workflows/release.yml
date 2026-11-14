@@ -15,18 +15,13 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             name: x86_64-linux
-          - target: x86_64-unknown-linux-musl
-            name: x86_64-linux-musl
-          - target: aarch64-unknown-linux-musl
-            name: aarch64-linux-musl
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      - uses: taiki-e/install-action@cross
       - name: Build
-        run: cross build --release --target ${{ matrix.target }}
+        run: cargo build --release --locked --target ${{ matrix.target }}
       - name: Package
         run: |
           cd target/${{ matrix.target }}/release
@@ -40,12 +35,13 @@ jobs:
 
   arch-package:
     # Build a native pacman package (.pkg.tar.zst) in an Arch container
+    needs: build
     runs-on: ubuntu-latest
     container: archlinux:base-devel
     steps:
       - name: Install toolchain
         run: |
-          pacman -Syu --noconfirm git rust
+          pacman -Syu --noconfirm sudo git cargo shadow
           useradd -m builder
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,11 +49,9 @@ jobs:
         run: chown -R builder:builder "$GITHUB_WORKSPACE"
       - name: Build package
         run: |
-          cd packaging
-          sudo -u builder makepkg -f --noconfirm
-          mv *.pkg.tar.zst ..
-        env:
-          HOME: /home/builder
+          runuser -u builder -- env HOME=/home/builder bash -c \
+            "cd '$GITHUB_WORKSPACE/packaging' && makepkg -f --noconfirm"
+          mv packaging/*.pkg.tar.zst .
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:

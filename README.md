@@ -1,10 +1,7 @@
 # ArchFinder
 
-[![CI](https://github.com/farbod2/ArchFinder/actions/workflows/ci.yml/badge.svg)](https://github.com/farbod2/ArchFinder/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/farbod2/ArchFinder?logo=github)](https://github.com/farbod2/ArchFinder/releases/latest)
-[![AUR version](https://img.shields.io/aur/version/archfinder?logo=archlinux&color=1793D1)](https://aur.archlinux.org/packages/archfinder)
-[![License](https://img.shields.io/github/license/farbod2/ArchFinder?color=blue)](LICENSE)
-[![Issues](https://img.shields.io/github/issues/farbod2/ArchFinder)](https://github.com/farbod2/ArchFinder/issues)
+<!-- Put your screenshot at docs/screenshot.png (recommended size ~1200x600, PNG or GIF) -->
+![ArchFinder — main view](docs/screenshot.png)
 
 ```
       /\
