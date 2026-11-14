@@ -1,11 +1,11 @@
 [package]
 name = "archfinder"
-version = "0.1.0"
+version = "0.1.2"
 edition = "2021"
 description = "A fast, keyboard-driven TUI to find and reclaim unused files and folders on Arch Linux"
-authors = ["unkn0wn"]
+authors = ["farbod2"]
 license = "MIT"
-repository = "https://github.com/unkn0wn/ArchFinder"
+repository = "https://github.com/farbod2/ArchFinder"
 readme = "README.md"
 keywords = ["tui", "disk-usage", "cleanup", "arch-linux", "terminal"]
 categories = ["command-line-utilities"]

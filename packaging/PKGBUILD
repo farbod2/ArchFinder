@@ -1,0 +1,33 @@
+# Maintainer: farbod2 <farbod2@users.noreply.github.com>
+# Contributor: ArchFinder project
+pkgname=archfinder
+pkgver=0.1.2
+pkgrel=1
+pkgdesc="Fast, keyboard-driven TUI to find and reclaim unused files and folders on Arch Linux"
+arch=('x86_64' 'aarch64')
+url="https://github.com/farbod2/ArchFinder"
+license=('MIT')
+depends=('glibc' 'gcc-libs')
+makedepends=('cargo' 'git')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP') # update when tagging; or use UPDATING below
+options=('!lto')
+
+build() {
+  cd "$pkgname-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR=target
+  cargo build --release --locked --all-features
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  ./target/release/archfinder --version
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm755 target/release/archfinder "$pkgdir/usr/bin/archfinder"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}

@@ -1,8 +1,22 @@
 # ArchFinder
 
-**Find and reclaim unused files and folders on Arch Linux — straight from your terminal.**
+[![CI](https://github.com/farbod2/ArchFinder/actions/workflows/ci.yml/badge.svg)](https://github.com/farbod2/ArchFinder/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/farbod2/ArchFinder?logo=github)](https://github.com/farbod2/ArchFinder/releases/latest)
+[![AUR version](https://img.shields.io/aur/version/archfinder?logo=archlinux&color=1793D1)](https://aur.archlinux.org/packages/archfinder)
+[![License](https://img.shields.io/github/license/farbod2/ArchFinder?color=blue)](LICENSE)
+[![Issues](https://img.shields.io/github/issues/farbod2/ArchFinder)](https://github.com/farbod2/ArchFinder/issues)
 
-ArchFinder is a fast, keyboard-driven TUI that scans for stale files, cache junk,
+```
+      /\
+     /  \
+     /\   \        Find and reclaim unused files and folders
+    /      \       on Arch Linux — straight from your terminal.
+   /   ,,   \
+  /   |  |  -.
+ /_-''    ''-_\
+```
+
+**ArchFinder** is a fast, keyboard-driven TUI that scans for stale files, cache junk,
 empty directories and broken symlinks, ranks them by the space they waste, and lets
 you move them to the system trash with a single keypress. Nothing is ever deleted
 permanently — everything goes to the FreeDesktop trash and can be restored.
@@ -25,6 +39,25 @@ permanently — everything goes to the FreeDesktop trash and can be restored.
 
 ## Install
 
+### With pacman (recommended on Arch)
+
+Download the `.pkg.tar.zst` from the [latest release](https://github.com/farbod2/ArchFinder/releases/latest) and install it:
+
+```bash
+sudo pacman -U archfinder-*-x86_64.pkg.tar.zst
+```
+
+Or build it yourself with makepkg:
+
+```bash
+git clone https://github.com/farbod2/ArchFinder
+cd ArchFinder/packaging
+makepkg -si
+```
+
+> Once published to the [AUR](https://aur.archlinux.org/packages/archfinder), it's a simple
+> `paru -S archfinder` / `yay -S archfinder`.
+
 ### From source (requires Rust)
 
 ```bash
@@ -35,7 +68,7 @@ cargo install archfinder
 
 ```bash
 # x86_64
-curl -LO https://github.com/unkn0wn/ArchFinder/releases/latest/download/archfinder-x86_64-linux.tar.gz
+curl -LO https://github.com/farbod2/ArchFinder/releases/latest/download/archfinder-x86_64-linux.tar.gz
 tar xf archfinder-x86_64-linux.tar.gz
 sudo mv archfinder /usr/local/bin/
 ```

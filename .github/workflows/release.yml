@@ -37,3 +37,29 @@ jobs:
         with:
           files: archfinder-${{ matrix.name }}.tar.gz
           generate_release_notes: true
+
+  arch-package:
+    # Build a native pacman package (.pkg.tar.zst) in an Arch container
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Install toolchain
+        run: |
+          pacman -Syu --noconfirm git rust
+          useradd -m builder
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Fix ownership
+        run: chown -R builder:builder "$GITHUB_WORKSPACE"
+      - name: Build package
+        run: |
+          cd packaging
+          sudo -u builder makepkg -f --noconfirm
+          mv *.pkg.tar.zst ..
+        env:
+          HOME: /home/builder
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: archfinder-*.pkg.tar.zst
+          generate_release_notes: true
