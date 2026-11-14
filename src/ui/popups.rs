@@ -1,0 +1,171 @@
+use crate::app::{App, Popup};
+use crate::model::{fmt_age, fmt_size};
+use ratatui::layout::{Constraint, Layout};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span, Text};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
+use ratatui::Frame;
+
+fn centered(width: u16, height: u16, f: &Frame) -> ratatui::layout::Rect {
+    let area = f.area();
+    let v = Layout::vertical([Constraint::Length(height)]).flex(ratatui::layout::Flex::Center);
+    let h = Layout::horizontal([Constraint::Length(width)]).flex(ratatui::layout::Flex::Center);
+    let [row] = v.areas(area);
+    let [col] = h.areas(row);
+    col
+}
+
+fn box_block(title: &str) -> Block {
+    Block::new()
+        .borders(Borders::ALL)
+        .title(Span::styled(
+            format!(" {title} "),
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+        ))
+        .border_style(Style::default().fg(Color::Cyan))
+}
+
+pub fn draw_help(f: &mut Frame) {
+    let area = centered(64, 20, f);
+    let text = Text::from(vec![
+        Line::from(Span::styled("Navigation", Style::default().fg(Color::Yellow))),
+        Line::from("  j / k / arrows     move cursor"),
+        Line::from("  g / G              jump to top / bottom"),
+        Line::from("  PgUp / PgDn        page"),
+        Line::from(""),
+        Line::from(Span::styled("Selection & action", Style::default().fg(Color::Yellow))),
+        Line::from("  space              toggle select item"),
+        Line::from("  a / A              select all shown / clear selection"),
+        Line::from("  t                  trash selected (with confirmation)"),
+        Line::from("  d                  item details"),
+        Line::from(""),
+        Line::from(Span::styled("View", Style::default().fg(Color::Yellow))),
+        Line::from("  1 / 2 / 3          switch mode, r scans"),
+        Line::from("  s                  cycle sort (size/age/name/path)"),
+        Line::from("  /                  filter, Esc clears filter"),
+        Line::from("  q                  quit"),
+        Line::from(""),
+        Line::from(Span::styled(
+            "Items are moved to the system trash — nothing is deleted.",
+            Style::default().fg(Color::Green),
+        )),
+    ]);
+    f.render_widget(Clear, area);
+    f.render_widget(
+        Paragraph::new(text)
+            .block(box_block("ArchFinder help"))
+            .wrap(Wrap { trim: false }),
+        area,
+    );
+}
+
+pub fn draw_confirm(f: &mut Frame, app: &App) {
+    let Popup::Confirm { entries, total } = &app.popup else {
+        return;
+    };
+    let shown = entries.iter().take(8);
+    let mut lines: Vec<Line> = Vec::new();
+    lines.push(Line::from(Span::styled(
+        format!("Move {} items ({}) to trash?", entries.len(), fmt_size(*total)),
+        Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+    )));
+    lines.push(Line::from(""));
+    for e in shown {
+        lines.push(Line::from(format!("  {} ({})", e.path.display(), fmt_size(e.size))));
+    }
+    if entries.len() > 8 {
+        lines.push(Line::from(format!("  … and {} more", entries.len() - 8)));
+    }
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        "Items go to the system trash and can be restored.",
+        Style::default().fg(Color::Green),
+    )));
+    lines.push(Line::from("Enter / y = trash · Esc / n = cancel"));
+
+    let area = centered(80, 16, f);
+    f.render_widget(Clear, area);
+    f.render_widget(
+        Paragraph::new(Text::from(lines))
+            .block(box_block("Confirm"))
+            .wrap(Wrap { trim: false }),
+        area,
+    );
+}
+
+pub fn draw_details(f: &mut Frame, app: &App) {
+    let Popup::Details(idx) = &app.popup else {
+        return;
+    };
+    let Some(e) = app.visible.get(*idx).and_then(|&i| app.entries.get(i)) else {
+        return;
+    };
+    let mut lines = vec![
+        Line::from(format!("Path:  {}", e.path.display())),
+        Line::from(format!("Type:  {}", e.kind.label())),
+        Line::from(format!("Size:  {}", fmt_size(e.size))),
+        Line::from(format!("Age:   {}", fmt_age(e.age_days()))),
+    ];
+    if let Some(m) = e.modified {
+        if let Ok(d) = m.duration_since(std::time::UNIX_EPOCH) {
+            lines.push(Line::from(format!(
+                "Modified: {}",
+                chrono_fmt(d.as_secs() as i64)
+            )));
+        }
+    }
+    if e.kind == crate::model::EntryKind::BrokenSymlink {
+        if let Ok(target) = std::fs::read_link(&e.path) {
+            lines.push(Line::from(format!("Points to (missing): {}", target.display())));
+        }
+    }
+
+    let area = centered(90, 10, f);
+    f.render_widget(Clear, area);
+    f.render_widget(
+        Paragraph::new(Text::from(lines))
+            .block(box_block("Details — Esc to close"))
+            .wrap(Wrap { trim: true }),
+        area,
+    );
+}
+
+/// Minimal UTC timestamp formatting without chrono.
+fn chrono_fmt(secs: i64) -> String {
+    let days = secs / 86_400;
+    let rem = secs % 86_400;
+    let (h, mi, s) = (rem / 3600, (rem % 3600) / 60, rem % 60);
+    // civil-from-days algorithm (Howard Hinnant)
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    format!("{y:04}-{m:02}-{d:02} {h:02}:{mi:02}:{s:02} UTC")
+}
+
+pub fn draw_message(f: &mut Frame, app: &App) {
+    let Popup::Message(msg) = &app.popup else { return };
+    let area = centered(70, 5, f);
+    f.render_widget(Clear, area);
+    f.render_widget(
+        Paragraph::new(msg.clone())
+            .block(box_block("Message — any key to close")),
+        area,
+    );
+}
+
+pub fn draw_filter_input(f: &mut Frame, app: &App) {
+    let area = centered(60, 3, f);
+    f.render_widget(Clear, area);
+    f.render_widget(
+        Paragraph::new(format!("/{}", app.filter_input))
+            .block(box_block("Filter — Enter to apply, Esc to cancel")),
+        area,
+    );
+}

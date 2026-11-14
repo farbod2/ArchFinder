@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            name: x86_64-linux
+          - target: x86_64-unknown-linux-musl
+            name: x86_64-linux-musl
+          - target: aarch64-unknown-linux-musl
+            name: aarch64-linux-musl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: taiki-e/install-action@cross
+      - name: Build
+        run: cross build --release --target ${{ matrix.target }}
+      - name: Package
+        run: |
+          cd target/${{ matrix.target }}/release
+          strip archfinder 2>/dev/null || true
+          tar czf ../../../archfinder-${{ matrix.name }}.tar.gz archfinder
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: archfinder-${{ matrix.name }}.tar.gz
+          generate_release_notes: true
