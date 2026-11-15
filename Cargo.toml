@@ -1,6 +1,6 @@
 [package]
 name = "archfinder"
-version = "0.1.4"
+version = "0.1.41"
 edition = "2021"
 description = "A fast, keyboard-driven TUI to find and reclaim unused files and folders on Arch Linux"
 authors = ["farbod2"]

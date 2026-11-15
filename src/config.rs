@@ -103,7 +103,20 @@ impl Config {
             .join("config.toml")
     }
 
+    /// Write the config to disk (creating `~/.config/archfinder/` if needed).
+    pub fn save(&self) -> std::io::Result<PathBuf> {
+        let path = Self::path();
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        let text = toml::to_string_pretty(self)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        std::fs::write(&path, text)?;
+        Ok(path)
+    }
+
     /// Load config, falling back to defaults. Returns (config, path_used).
+    /// If no config file exists yet, one is created with the defaults.
     pub fn load() -> (Self, Option<PathBuf>) {
         let path = Self::path();
         match std::fs::read_to_string(&path) {
@@ -111,7 +124,15 @@ impl Config {
                 Ok(cfg) => (cfg, Some(path)),
                 Err(_) => (Self::default(), Some(path)),
             },
-            Err(_) => (Self::default(), None),
+            Err(_) => {
+                let cfg = Self::default();
+                // first run: create the file so users can edit it
+                if let Err(e) = cfg.save() {
+                    eprintln!("note: could not create {}: {e}", path.display());
+                    return (cfg, None);
+                }
+                (cfg, Some(path))
+            }
         }
     }
 

@@ -1,7 +1,7 @@
 # Maintainer: farbod2 <farbod2@users.noreply.github.com>
 # Contributor: ArchFinder project
 pkgname=archfinder
-pkgver=0.1.4
+pkgver=0.1.4.1
 pkgrel=1
 pkgdesc="Fast CLI tool with a terminal UI to find and reclaim unused files and folders on Arch Linux"
 arch=('x86_64' 'aarch64')

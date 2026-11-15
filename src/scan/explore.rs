@@ -3,7 +3,6 @@
 
 use crate::model::{Entry, EntryKind};
 use crate::scan::ScanMsg;
-use jwalk::WalkDir;
 use rayon::prelude::*;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -11,40 +10,37 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
 use std::time::SystemTime;
 
-/// Virtual kernel filesystems — never walk into these (huge/slow, meaningless sizes).
-const VIRTUAL_MOUNTS: [&str; 4] = ["/proc", "/sys", "/dev", "/run"];
-
 /// Size of one path: files = own size; dirs = recursive subtree size.
+///
+/// Uses a plain iterative walk (NOT jwalk/rayon-inside-rayon — nesting rayon
+/// pools with a blocking wait deadlocks, which froze the Explorer). Metadata
+/// is only stat'ed, never read, so even kernel filesystems (/proc, /sys, /dev,
+/// /run) terminate quickly. Every mount is checked — nothing is skipped.
 fn subtree_size(path: &Path, walked: &AtomicU64) -> (u64, Option<SystemTime>) {
-    if !path.is_dir() {
-        let meta = std::fs::symlink_metadata(path);
-        return (
-            meta.as_ref().map(|m| m.len()).unwrap_or(0),
-            meta.ok().and_then(|m| m.modified().ok()),
-        );
-    }
-    if VIRTUAL_MOUNTS.iter().any(|v| path == Path::new(v)) {
+    let Ok(meta) = std::fs::symlink_metadata(path) else {
         return (0, None);
+    };
+    if !meta.is_dir() {
+        return (meta.len(), meta.modified().ok());
     }
     let mut total = 0u64;
     let mut newest: Option<SystemTime> = None;
-    let walker = WalkDir::new(path)
-        .parallelism(jwalk::Parallelism::RayonDefaultPool {
-            busy_timeout: std::time::Duration::from_millis(20),
-        })
-        .follow_links(false)
-        .skip_hidden(false);
-    for entry in walker {
-        let Ok(e) = entry else { continue };
-        walked.fetch_add(1, Ordering::Relaxed);
-        if e.file_type.is_dir() {
-            continue;
-        }
-        if let Ok(meta) = e.metadata() {
-            total += meta.len();
-            if let Ok(m) = meta.modified() {
-                if newest.map(|cur| m > cur).unwrap_or(true) {
-                    newest = Some(m);
+    let mut stack: Vec<PathBuf> = vec![path.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+        for entry in rd.flatten() {
+            walked.fetch_add(1, Ordering::Relaxed);
+            let Ok(ft) = entry.file_type() else { continue };
+            if ft.is_dir() {
+                stack.push(entry.path());
+                continue;
+            }
+            if let Ok(meta) = entry.metadata() {
+                total += meta.len();
+                if let Ok(m) = meta.modified() {
+                    if newest.map(|cur| m > cur).unwrap_or(true) {
+                        newest = Some(m);
+                    }
                 }
             }
         }

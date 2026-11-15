@@ -173,7 +173,7 @@ pub fn draw_path_input(f: &mut Frame, app: &App) {
 }
 
 pub fn draw_about(f: &mut Frame) {
-    let version = env!("CARGO_PKG_VERSION");
+    let version = crate::VERSION;
     let area = centered(62, 12, f);
     let pad = "  ";
     let mut lines = Vec::new();

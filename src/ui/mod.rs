@@ -93,7 +93,7 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
             Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
         ),
         Span::styled(
-            format!("v{}  ", env!("CARGO_PKG_VERSION")),
+            format!("v{}  ", crate::VERSION),
             Style::default().fg(Color::DarkGray),
         ),
         Span::styled(

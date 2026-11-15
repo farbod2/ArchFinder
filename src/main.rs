@@ -17,9 +17,13 @@ use ratatui::Terminal;
 use std::io;
 use std::time::Duration;
 
+/// Human-facing version. Cargo.toml holds it as 0.1.41 (Cargo requires valid
+/// semver — only 3 components); users know the release as 0.1.4.1.
+pub const VERSION: &str = "0.1.4.1";
+
 /// ArchFinder — find and reclaim unused files and folders on Arch Linux.
 #[derive(Parser, Debug)]
-#[command(name = "archfinder", version, about, long_about = None)]
+#[command(name = "archfinder", version = crate::VERSION, about, long_about = None)]
 struct Args {
     /// Mode: 0 = stale files, 1 = junk & leftovers, 2 = custom paths.
     #[arg(short, long, default_value_t = 0)]
