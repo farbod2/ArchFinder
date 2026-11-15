@@ -11,6 +11,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
 use std::time::SystemTime;
 
+/// Virtual kernel filesystems — never walk into these (huge/slow, meaningless sizes).
+const VIRTUAL_MOUNTS: [&str; 4] = ["/proc", "/sys", "/dev", "/run"];
+
 /// Size of one path: files = own size; dirs = recursive subtree size.
 fn subtree_size(path: &Path, walked: &AtomicU64) -> (u64, Option<SystemTime>) {
     if !path.is_dir() {
@@ -19,6 +22,9 @@ fn subtree_size(path: &Path, walked: &AtomicU64) -> (u64, Option<SystemTime>) {
             meta.as_ref().map(|m| m.len()).unwrap_or(0),
             meta.ok().and_then(|m| m.modified().ok()),
         );
+    }
+    if VIRTUAL_MOUNTS.iter().any(|v| path == Path::new(v)) {
+        return (0, None);
     }
     let mut total = 0u64;
     let mut newest: Option<SystemTime> = None;
