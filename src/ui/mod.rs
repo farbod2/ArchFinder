@@ -1,3 +1,4 @@
+mod explorer;
 mod popups;
 
 use crate::app::{App, Popup};
@@ -18,7 +19,11 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     .split(f.area());
 
     draw_header(f, app, chunks[0]);
-    draw_table(f, app, chunks[1]);
+    if app.tab == 1 {
+        explorer::draw(f, app, chunks[1]);
+    } else {
+        draw_table(f, app, chunks[1]);
+    }
     draw_status(f, app, chunks[2]);
     draw_keybinds(f, app, chunks[3]);
 
@@ -28,6 +33,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         Popup::About => popups::draw_about(f),
         Popup::Confirm { .. } => popups::draw_confirm(f, app),
         Popup::Details(_) => popups::draw_details(f, app),
+        Popup::PathInput => popups::draw_path_input(f, app),
     }
 }
 
@@ -97,21 +103,43 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
     ]);
     f.render_widget(ratatui::widgets::Paragraph::new(title), rows[0]);
 
-    let titles: Vec<Line> = MODES
+    // top-level tabs: [1 Scanner] [2 Explorer]
+    let top_titles: Vec<Line> = [" 1 Scanner ", " 2 Explorer "]
         .iter()
         .enumerate()
-        .map(|(i, m)| {
-            Line::from(format!(" {} {} ", i + 1, m)).style(if i == app.mode {
+        .map(|(i, t)| {
+            Line::from(*t).style(if i == app.tab {
                 Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(Color::Gray)
+                Style::default().fg(Color::DarkGray)
             })
         })
         .collect();
-    let tabs = Tabs::new(titles).select(app.mode).highlight_style(Style::default());
-    f.render_widget(tabs, rows[1]);
+    f.render_widget(Tabs::new(top_titles).select(app.tab), rows[1]);
 
-    if app.scanning {
+    // second row: scanner sub-modes (on scanner tab) or explorer hint
+    if app.tab == 0 {
+        let sub: Vec<Line> = MODES
+            .iter()
+            .enumerate()
+            .map(|(i, m)| {
+                Line::from(format!(" {} {} ", i + 1, m)).style(if i == app.mode {
+                    Style::default().fg(Color::Cyan)
+                } else {
+                    Style::default().fg(Color::Gray)
+                })
+            })
+            .collect();
+        f.render_widget(Tabs::new(sub).select(app.mode), rows[2]);
+    } else {
+        let hint = "p open path · Enter open dir · h up · Tab = scanner".to_string();
+        let line = Line::from(hint).style(Style::default().fg(Color::DarkGray));
+        f.render_widget(ratatui::widgets::Paragraph::new(line), rows[2]);
+    }
+
+    // gauge while scanning (either tab), else status (scanner tab)
+    let scanning = if app.tab == 1 { app.exp_scanning } else { app.scanning };
+    if scanning {
         let pct = (app.progress.0 % 100) as u16; // indeterminate-style shimmer
         let gauge = Gauge::default()
             .gauge_style(Style::default().fg(ARCH_BLUE))
@@ -121,10 +149,10 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
                 app.progress.0,
                 truncate_tail(&app.progress.1, rw.saturating_sub(20) as usize)
             ));
-        f.render_widget(gauge, rows[2]);
-    } else {
+        f.render_widget(gauge, rows[3]);
+    } else if app.tab == 0 {
         let line = Line::from(app.status.clone()).style(Style::default().fg(Color::DarkGray));
-        f.render_widget(ratatui::widgets::Paragraph::new(line), rows[2]);
+        f.render_widget(ratatui::widgets::Paragraph::new(line), rows[3]);
     }
 }
 
@@ -236,10 +264,16 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_keybinds(f: &mut Frame, app: &App, area: Rect) {
-    let sel = app.selected.len();
-    let binds = format!(
-        "1/2/3 mode · r scan · j/k move · space select ({sel}) · a all · A none · s sort · / filter · t trash · d details · i about · ? help · q quit"
-    );
+    let sel = if app.tab == 1 { app.exp_selected.len() } else { app.selected.len() };
+    let binds = if app.tab == 1 {
+        format!(
+            "Tab scanner · p path · Enter open · h up · j/k move · space select ({sel}) · a all · A none · s sort · / filter · t trash · d details · ? help · q quit"
+        )
+    } else {
+        format!(
+            "Tab explorer · 1/2/3 mode · r scan · j/k move · space select ({sel}) · a all · A none · s sort · / filter · t trash · d details · i about · ? help · q quit"
+        )
+    };
     f.render_widget(
         ratatui::widgets::Paragraph::new(Line::from(binds))
             .style(Style::default().fg(Color::DarkGray)),

@@ -21,6 +21,7 @@ pub enum Popup {
     About,
     Confirm { entries: Vec<Entry>, total: u64 },
     Details(usize),
+    PathInput,
 }
 
 pub struct App {
@@ -47,6 +48,22 @@ pub struct App {
     pub last_trashed: Vec<PathBuf>,
     pub protected: Vec<PathBuf>,
     pub visible: Vec<usize>,
+    // ---- Explorer tab ----
+    /// 0 = Scanner, 1 = Explorer
+    pub tab: usize,
+    /// current directory shown in the Explorer
+    pub exp_path: PathBuf,
+    /// explorer children (dirs first, size desc)
+    pub exp_children: Vec<Entry>,
+    /// selected indices into exp_children
+    pub exp_selected: HashSet<usize>,
+    /// explorer visible (after filter)
+    pub exp_visible: Vec<usize>,
+    pub exp_cursor: usize,
+    pub exp_offset: usize,
+    pub exp_scanning: bool,
+    pub exp_rx: Option<Receiver<ScanMsg>>,
+    pub path_input: String,
 }
 
 impl App {
@@ -73,6 +90,16 @@ impl App {
             last_trashed: Vec::new(),
             protected,
             visible: Vec::new(),
+            tab: 0,
+            exp_path: PathBuf::from("/"),
+            exp_children: Vec::new(),
+            exp_selected: HashSet::new(),
+            exp_visible: Vec::new(),
+            exp_cursor: 0,
+            exp_offset: 0,
+            exp_scanning: false,
+            exp_rx: None,
+            path_input: String::new(),
         }
     }
 
@@ -128,6 +155,177 @@ impl App {
             }
         }
     }
+
+    // ---------- Explorer tab ----------
+
+    pub fn start_explore(&mut self, path: PathBuf) {
+        if self.exp_scanning {
+            return;
+        }
+        let (tx, rx) = mpsc::channel();
+        self.exp_rx = Some(rx);
+        self.exp_scanning = true;
+        self.exp_path = path;
+        self.exp_children.clear();
+        self.exp_visible.clear();
+        self.exp_selected.clear();
+        self.exp_cursor = 0;
+        self.exp_offset = 0;
+        self.status = format!("Exploring {}…", self.exp_path.display());
+        let ignore: HashSet<String> = self.config.ignore_names.iter().cloned().collect();
+        scan::explore::spawn_explore(self.exp_path.clone(), ignore, tx);
+    }
+
+    pub fn poll_explore(&mut self) {
+        if self.exp_rx.is_none() {
+            return;
+        }
+        let rx = self.exp_rx.take().unwrap();
+        loop {
+            match rx.try_recv() {
+                Ok(ScanMsg::Progress(n, cur)) => {
+                    self.progress = (n, cur);
+                }
+                Ok(ScanMsg::Done(Ok(children))) => {
+                    let total: u64 = children.iter().map(|e| e.size).sum();
+                    self.exp_children = children;
+                    self.exp_rebuild_visible();
+                    self.exp_scanning = false;
+                    self.status = format!(
+                        "{}: {} items, {}",
+                        self.exp_path.display(),
+                        self.exp_children.len(),
+                        fmt_size(total)
+                    );
+                    break;
+                }
+                Ok(ScanMsg::Done(Err(e))) => {
+                    self.exp_scanning = false;
+                    self.status = format!("Explore failed: {e}");
+                    break;
+                }
+                Err(_) => {
+                    self.exp_rx = Some(rx);
+                    break;
+                }
+            }
+        }
+    }
+
+    pub fn exp_rebuild_visible(&mut self) {
+        let filter = self.filter.to_lowercase();
+        let mut vis: Vec<usize> = self
+            .exp_children
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| {
+                filter.is_empty()
+                    || e.path.to_string_lossy().to_lowercase().contains(&filter)
+            })
+            .map(|(i, _)| i)
+            .collect();
+        if self.sort == SortBy::Name {
+            vis.sort_by(|&a, &b| {
+                let an = self.exp_children[a]
+                    .path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy();
+                let bn = self.exp_children[b]
+                    .path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy();
+                an.cmp(&bn)
+            });
+        }
+        self.exp_visible = vis;
+        self.exp_clamp();
+    }
+
+    fn exp_clamp(&mut self) {
+        let len = self.exp_visible.len();
+        if len == 0 {
+            self.exp_cursor = 0;
+            self.exp_offset = 0;
+        } else {
+            self.exp_cursor = self.exp_cursor.min(len - 1);
+            if self.exp_cursor < self.exp_offset {
+                self.exp_offset = self.exp_cursor;
+            }
+            if self.exp_cursor >= self.exp_offset + 200 {
+                self.exp_offset = self.exp_cursor - 199;
+            }
+        }
+    }
+
+    pub fn exp_cursor_entry(&self) -> Option<&Entry> {
+        self.exp_visible
+            .get(self.exp_cursor)
+            .and_then(|&i| self.exp_children.get(i))
+    }
+
+    pub fn exp_toggle_select(&mut self) {
+        if let Some(&i) = self.exp_visible.get(self.exp_cursor) {
+            if !self.exp_selected.insert(i) {
+                self.exp_selected.remove(&i);
+            }
+        }
+    }
+
+    pub fn exp_select_all(&mut self) {
+        for &i in &self.exp_visible {
+            self.exp_selected.insert(i);
+        }
+        self.status = format!("Selected {} items", self.exp_visible.len());
+    }
+
+    /// Open the directory under the explorer cursor (if it is a dir).
+    pub fn exp_open(&mut self) {
+        let Some(e) = self.exp_cursor_entry().cloned() else { return };
+        if e.kind == crate::model::EntryKind::Dir {
+            self.start_explore(e.path);
+        } else {
+            self.status = "Not a directory".into();
+        }
+    }
+
+    pub fn exp_up(&mut self) {
+        if let Some(parent) = self.exp_path.parent() {
+            if parent != self.exp_path {
+                self.start_explore(parent.to_path_buf());
+            }
+        }
+    }
+
+    pub fn open_path_input(&mut self) {
+        self.path_input.clear();
+        self.popup = Popup::PathInput;
+    }
+
+    pub fn submit_path_input(&mut self) {
+        if let Popup::PathInput = std::mem::replace(&mut self.popup, Popup::None) {
+            let raw = self.path_input.trim().to_string();
+            if raw.is_empty() {
+                return;
+            }
+            let expanded = if let Some(rest) = raw.strip_prefix('~') {
+                match dirs::home_dir() {
+                    Some(home) => home.join(rest.trim_start_matches('/')),
+                    None => PathBuf::from(&raw),
+                }
+            } else {
+                PathBuf::from(&raw)
+            };
+            if !expanded.exists() {
+                self.status = format!("No such path: {}", expanded.display());
+                return;
+            }
+            self.tab = 1;
+            self.start_explore(expanded);
+        }
+    }
+
 
     pub fn rebuild_visible(&mut self) {
         let filter = self.filter.to_lowercase();
@@ -233,11 +431,18 @@ impl App {
             let refs: Vec<&Entry> = entries.iter().collect();
             let (ok, failed) = actions::trash_entries(&refs, &self.protected);
             self.last_trashed = entries.iter().map(|e| e.path.clone()).collect();
-            // drop trashed from list
+            // drop trashed from the active tab's list
             let trashed: HashSet<PathBuf> = self.last_trashed.iter().cloned().collect();
-            self.entries.retain(|e| !trashed.contains(&e.path));
-            self.selected.clear();
-            self.rebuild_visible();
+            if self.tab == 1 {
+                self.exp_children.retain(|e| !trashed.contains(&e.path));
+                self.exp_selected.clear();
+                self.exp_rebuild_visible();
+                self.start_explore(self.exp_path.clone()); // refresh sizes
+            } else {
+                self.entries.retain(|e| !trashed.contains(&e.path));
+                self.selected.clear();
+                self.rebuild_visible();
+            }
             let mut msg = format!("Trashed {ok} items");
             if !failed.is_empty() {
                 msg.push_str(&format!(", {} failed: {}", failed.len(), failed[0].1));
@@ -247,8 +452,14 @@ impl App {
     }
 
     pub fn show_details(&mut self) {
-        if self.cursor_entry().is_some() {
-            self.popup = Popup::Details(self.cursor);
+        let idx = if self.tab == 1 { self.exp_cursor } else { self.cursor };
+        let has = if self.tab == 1 {
+            self.exp_cursor_entry().is_some()
+        } else {
+            self.cursor_entry().is_some()
+        };
+        if has {
+            self.popup = Popup::Details(idx);
         } else {
             self.status = "No item under cursor".into();
         }
@@ -270,7 +481,11 @@ impl App {
                 KeyCode::Enter => {
                     self.filter = self.filter_input.clone();
                     self.collecting_filter = false;
-                    self.rebuild_visible();
+                    if self.tab == 1 {
+                        self.exp_rebuild_visible();
+                    } else {
+                        self.rebuild_visible();
+                    }
                 }
                 KeyCode::Backspace => {
                     self.filter_input.pop();
@@ -278,6 +493,33 @@ impl App {
                 KeyCode::Char(c) => self.filter_input.push(c),
                 _ => {}
             }
+            return;
+        }
+
+        if matches!(self.popup, Popup::PathInput) {
+            match key.code {
+                KeyCode::Esc => self.popup = Popup::None,
+                KeyCode::Enter => self.submit_path_input(),
+                KeyCode::Backspace => {
+                    self.path_input.pop();
+                }
+                KeyCode::Char(c) => self.path_input.push(c),
+                _ => {}
+            }
+            return;
+        }
+
+        // Tab toggles Scanner <-> Explorer (works even with popups closed only)
+        if key.code == KeyCode::Tab && matches!(self.popup, Popup::None) {
+            self.tab = 1 - self.tab;
+            if self.tab == 1 && self.exp_children.is_empty() && !self.exp_scanning {
+                self.start_explore(self.exp_path.clone());
+            }
+            self.status = if self.tab == 1 {
+                "Explorer — p to open a path, Tab to switch back".into()
+            } else {
+                "Scanner".into()
+            };
             return;
         }
 
@@ -305,10 +547,15 @@ impl App {
                     self.popup = Popup::None;
                 }
             }
+            Popup::PathInput => {} // handled above
         }
     }
 
     fn handle_main_key(&mut self, key: KeyEvent) {
+        if self.tab == 1 {
+            self.handle_explorer_key(key);
+            return;
+        }
         match key.code {
             KeyCode::Char('q') => self.should_quit = true,
             KeyCode::Char('j') | KeyCode::Down => {
@@ -359,6 +606,82 @@ impl App {
             KeyCode::Char('r') => self.start_scan(),
             KeyCode::Char('t') => self.open_confirm(),
             KeyCode::Char('d') => self.show_details(),
+            KeyCode::Char('?') => self.popup = Popup::Help,
+            KeyCode::Char('i') => self.popup = Popup::About,
+            _ => {}
+        }
+    }
+
+    fn handle_explorer_key(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Char('q') => self.should_quit = true,
+            KeyCode::Char('j') | KeyCode::Down => {
+                if self.exp_cursor + 1 < self.exp_visible.len() {
+                    self.exp_cursor += 1;
+                    self.exp_clamp();
+                }
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                self.exp_cursor = self.exp_cursor.saturating_sub(1);
+                self.exp_clamp();
+            }
+            KeyCode::Char('g') | KeyCode::Home => {
+                self.exp_cursor = 0;
+                self.exp_clamp();
+            }
+            KeyCode::Char('G') | KeyCode::End => {
+                self.exp_cursor = self.exp_visible.len().saturating_sub(1);
+                self.exp_clamp();
+            }
+            KeyCode::PageDown => {
+                self.exp_cursor = (self.exp_cursor + 20).min(self.exp_visible.len().saturating_sub(1));
+                self.exp_clamp();
+            }
+            KeyCode::PageUp => {
+                self.exp_cursor = self.exp_cursor.saturating_sub(20);
+                self.exp_clamp();
+            }
+            KeyCode::Enter | KeyCode::Char('l') => self.exp_open(),
+            KeyCode::Char('h') | KeyCode::Backspace => self.exp_up(),
+            KeyCode::Char('p') => self.open_path_input(),
+            KeyCode::Char('r') => self.start_explore(self.exp_path.clone()),
+            KeyCode::Char(' ') => self.exp_toggle_select(),
+            KeyCode::Char('a') => self.exp_select_all(),
+            KeyCode::Char('A') => {
+                self.exp_selected.clear();
+                self.status = "Selection cleared".into();
+            }
+            KeyCode::Char('s') => {
+                self.sort = self.sort.next();
+                self.exp_rebuild_visible();
+                self.status = format!("Sorted by {}", self.sort.label());
+            }
+            KeyCode::Char('/') => {
+                self.collecting_filter = true;
+                self.filter_input.clear();
+            }
+            KeyCode::Esc => {
+                self.filter.clear();
+                self.exp_rebuild_visible();
+            }
+            KeyCode::Char('t') => {
+                if self.exp_selected.is_empty() {
+                    self.status = "Nothing selected — use space to select items".into();
+                } else {
+                    let picked: Vec<Entry> = self
+                        .exp_selected
+                        .iter()
+                        .filter_map(|&i| self.exp_children.get(i).cloned())
+                        .collect();
+                    let total = picked.iter().map(|e| e.size).sum();
+                    self.popup = Popup::Confirm { entries: picked, total };
+                }
+            }
+            KeyCode::Char('d') => {
+                if self.exp_cursor_entry().is_some() {
+                    self.popup = Popup::Details(self.exp_cursor);
+                }
+            }
             KeyCode::Char('?') => self.popup = Popup::Help,
             KeyCode::Char('i') => self.popup = Popup::About,
             _ => {}

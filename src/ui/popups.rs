@@ -40,9 +40,15 @@ pub fn draw_help(f: &mut Frame) {
         Line::from("  d                  item details"),
         Line::from(""),
         Line::from(Span::styled("View", Style::default().fg(Color::Yellow))),
-        Line::from("  1 / 2 / 3          switch mode, r scans"),
+        Line::from("  Tab                switch Scanner / Explorer tabs"),
+        Line::from("  1 / 2 / 3          scanner mode, r scans"),
         Line::from("  s                  cycle sort (size/age/name/path)"),
         Line::from("  /                  filter, Esc clears filter"),
+        Line::from(""),
+        Line::from(Span::styled("Explorer tab", Style::default().fg(Color::Yellow))),
+        Line::from("  p                  open any path (default: /)"),
+        Line::from("  Enter / l          descend into directory"),
+        Line::from("  h / Backspace      go up one level"),
         Line::from("  i                  about"),
         Line::from("  q                  quit"),
         Line::from(""),
@@ -98,7 +104,12 @@ pub fn draw_details(f: &mut Frame, app: &App) {
     let Popup::Details(idx) = &app.popup else {
         return;
     };
-    let Some(e) = app.visible.get(*idx).and_then(|&i| app.entries.get(i)) else {
+    let e = if app.tab == 1 {
+        app.exp_visible.get(*idx).and_then(|&i| app.exp_children.get(i))
+    } else {
+        app.visible.get(*idx).and_then(|&i| app.entries.get(i))
+    };
+    let Some(e) = e else {
         return;
     };
     let mut lines = vec![
@@ -148,6 +159,17 @@ fn chrono_fmt(secs: i64) -> String {
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
     let y = if m <= 2 { y + 1 } else { y };
     format!("{y:04}-{m:02}-{d:02} {h:02}:{mi:02}:{s:02} UTC")
+}
+
+pub fn draw_path_input(f: &mut Frame, app: &App) {
+    let area = centered(70, 3, f);
+    f.render_widget(Clear, area);
+    let default = format!(" (default: {})  ", app.exp_path.display());
+    f.render_widget(
+        Paragraph::new(format!("{}{}", app.path_input, default))
+            .block(box_block("Open path — Enter to explore, Esc to cancel")),
+        area,
+    );
 }
 
 pub fn draw_about(f: &mut Frame) {

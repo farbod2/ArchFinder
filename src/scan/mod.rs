@@ -1,3 +1,4 @@
+pub mod explore;
 pub mod walker;
 
 use crate::config::Config;

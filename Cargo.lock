@@ -77,6 +77,7 @@ dependencies = [
  "jwalk",
  "ratatui",
  "rayon",
+ "rustix",
  "serde",
  "serde_json",
  "toml",

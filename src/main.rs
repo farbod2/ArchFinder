@@ -95,6 +95,7 @@ fn run_tui(
 
         // drive scan progress even between events
         app.poll_scan();
+        app.poll_explore();
 
         match App::next_event(Duration::from_millis(100)) {
             Some(TerminalEvent::Key(k)) => app.handle_key(k),

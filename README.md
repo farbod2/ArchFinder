@@ -84,18 +84,30 @@ archfinder --json --min-age 365 | jq   # scriptable output
 
 | Key | Action |
 |---|---|
+| `Tab` | switch Scanner ↔ Explorer |
 | `j` / `k` / arrows | move |
 | `g` / `G` | top / bottom |
 | `space` | toggle select |
 | `a` / `A` | select all shown / clear |
 | `t` | trash selected (asks first) |
 | `d` | item details |
-| `1` `2` `3` | switch mode |
+| `1` `2` `3` | scanner mode (stale / junk / custom) |
 | `r` | rescan |
 | `s` | cycle sort (size / age / name / path) |
 | `/` | filter · `Esc` clears |
+| `p` | Explorer: open any path (default `/`) |
+| `Enter` / `l` | Explorer: descend into directory |
+| `h` / `Backspace` | Explorer: go up |
+| `i` | about |
 | `?` | help |
 | `q` | quit |
+
+### Explorer tab
+
+The **Explorer** (press `Tab`) is a disk-usage browser: pick any path or
+partition (default `/`), navigate through folders, and see a live usage ring,
+used/total/free stats and per-file size bars showing exactly what eats your
+space. Select items and trash them like in the Scanner tab.
 
 ## Configuration
 
