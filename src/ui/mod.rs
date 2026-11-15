@@ -132,7 +132,7 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
             .collect();
         f.render_widget(Tabs::new(sub).select(app.mode), rows[2]);
     } else {
-        let hint = "p open path · Enter open dir · h up · Tab = scanner".to_string();
+        let hint = "r scan · p open path · Enter open dir · h up · Tab = scanner".to_string();
         let line = Line::from(hint).style(Style::default().fg(Color::DarkGray));
         f.render_widget(ratatui::widgets::Paragraph::new(line), rows[2]);
     }

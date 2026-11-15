@@ -512,11 +512,8 @@ impl App {
         // Tab toggles Scanner <-> Explorer (works even with popups closed only)
         if key.code == KeyCode::Tab && matches!(self.popup, Popup::None) {
             self.tab = 1 - self.tab;
-            if self.tab == 1 && self.exp_children.is_empty() && !self.exp_scanning {
-                self.start_explore(self.exp_path.clone());
-            }
             self.status = if self.tab == 1 {
-                "Explorer — p to open a path, Tab to switch back".into()
+                "Explorer — r to scan, p to open a path, Tab to switch back".into()
             } else {
                 "Scanner".into()
             };

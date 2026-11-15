@@ -5,6 +5,7 @@ use crate::model::{Entry, EntryKind};
 use crate::scan::ScanMsg;
 use rayon::prelude::*;
 use std::collections::HashSet;
+use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
@@ -21,7 +22,9 @@ fn subtree_size(path: &Path, walked: &AtomicU64) -> (u64, Option<SystemTime>) {
         return (0, None);
     };
     if !meta.is_dir() {
-        return (meta.len(), meta.modified().ok());
+        // use allocated blocks, not st_size: procfs/sysfs report
+        // unreliable apparent sizes (e.g. /proc/kcore = 128 TiB)
+        return (meta.blocks() * 512, meta.modified().ok());
     }
     let mut total = 0u64;
     let mut newest: Option<SystemTime> = None;
@@ -36,7 +39,8 @@ fn subtree_size(path: &Path, walked: &AtomicU64) -> (u64, Option<SystemTime>) {
                 continue;
             }
             if let Ok(meta) = entry.metadata() {
-                total += meta.len();
+                // use allocated blocks, not st_size (see above)
+                total += meta.blocks() * 512;
                 if let Ok(m) = meta.modified() {
                     if newest.map(|cur| m > cur).unwrap_or(true) {
                         newest = Some(m);
@@ -114,4 +118,21 @@ fn run(path: &Path, ignore_names: HashSet<String>, tx: &Sender<ScanMsg>) -> Resu
         db.cmp(&da).then(b.size.cmp(&a.size))
     });
     Ok(entries)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Verify sizes use allocated blocks rather than apparent st_size:
+    /// /proc/kcore reports st_size of 128 TiB but occupies ~0 blocks.
+    #[test]
+    fn kcore_is_not_apparent_size() {
+        let p = Path::new("/proc/kcore");
+        if !p.exists() {
+            return; // non-Linux or restricted /proc
+        }
+        let (size, _) = subtree_size(p, &AtomicU64::new(0));
+        assert!(size < 1024 * 1024, "kcore size {size} — st_size used instead of blocks");
+    }
 }
