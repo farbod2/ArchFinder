@@ -11,9 +11,8 @@ use std::time::Duration;
 
 pub enum TerminalEvent {
     Key(KeyEvent),
-    Mouse(crossterm::event::MouseEvent),
-    Tick,
-    Resize(u16, u16),
+    Mouse,
+    Resize,
 }
 
 pub enum Popup {
@@ -22,8 +21,6 @@ pub enum Popup {
     About,
     Confirm { entries: Vec<Entry>, total: u64 },
     Details(usize),
-    Message(String),
-    FilterInput,
 }
 
 pub struct App {
@@ -286,8 +283,7 @@ impl App {
 
         match self.popup {
             Popup::None => self.handle_main_key(key),
-            Popup::FilterInput => unreachable!(),
-            Popup::Help | Popup::Message(_) => match key.code {
+            Popup::Help => match key.code {
                 KeyCode::Esc | KeyCode::Char('q') | KeyCode::Enter | KeyCode::Char('?') => {
                     self.popup = Popup::None
                 }
@@ -382,8 +378,8 @@ impl App {
         match poll {
             Ok(true) => match crossterm::event::read() {
                 Ok(CEvent::Key(k)) => Some(TerminalEvent::Key(k)),
-                Ok(CEvent::Mouse(m)) => Some(TerminalEvent::Mouse(m)),
-                Ok(CEvent::Resize(w, h)) => Some(TerminalEvent::Resize(w, h)),
+                Ok(CEvent::Mouse(_)) => Some(TerminalEvent::Mouse),
+                Ok(CEvent::Resize(_, _)) => Some(TerminalEvent::Resize),
                 Ok(_) => None,
                 Err(_) => None,
             },

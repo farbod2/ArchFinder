@@ -46,8 +46,6 @@ pub struct Entry {
     /// Total size in bytes (for dirs, recursive).
     pub size: u64,
     pub modified: Option<SystemTime>,
-    /// Index into `MODES` — which detector found it.
-    pub mode: usize,
 }
 
 impl Entry {
@@ -72,8 +70,6 @@ pub enum SortBy {
 }
 
 impl SortBy {
-    pub const ALL: [SortBy; 4] = [SortBy::Size, SortBy::Age, SortBy::Name, SortBy::Path];
-
     pub fn label(&self) -> &'static str {
         match self {
             SortBy::Size => "size",

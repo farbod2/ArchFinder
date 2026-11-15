@@ -28,8 +28,6 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         Popup::About => popups::draw_about(f),
         Popup::Confirm { .. } => popups::draw_confirm(f, app),
         Popup::Details(_) => popups::draw_details(f, app),
-        Popup::Message(_) => popups::draw_message(f, app),
-        Popup::FilterInput => popups::draw_filter_input(f, app),
     }
 }
 

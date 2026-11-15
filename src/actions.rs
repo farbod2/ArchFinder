@@ -21,8 +21,3 @@ pub fn trash_entries(
     }
     (ok, failed)
 }
-
-/// Where trashed items can be restored from (for the undo hint).
-pub fn trash_dir() -> Option<PathBuf> {
-    dirs::data_dir().map(|d| d.join("Trash").join("files"))
-}

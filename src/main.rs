@@ -98,9 +98,9 @@ fn run_tui(
 
         match App::next_event(Duration::from_millis(100)) {
             Some(TerminalEvent::Key(k)) => app.handle_key(k),
-            Some(TerminalEvent::Mouse(_)) => {}
-            Some(TerminalEvent::Resize(_, _)) => {}
-            Some(TerminalEvent::Tick) | None => {}
+            Some(TerminalEvent::Mouse) => {}
+            Some(TerminalEvent::Resize) => {}
+            None => {}
         }
 
         if app.should_quit {

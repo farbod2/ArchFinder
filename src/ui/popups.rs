@@ -15,7 +15,7 @@ fn centered(width: u16, height: u16, f: &Frame) -> ratatui::layout::Rect {
     col
 }
 
-fn box_block(title: &str) -> Block {
+fn box_block(title: &str) -> Block<'_> {
     Block::new()
         .borders(Borders::ALL)
         .title(Span::styled(
@@ -213,23 +213,4 @@ pub fn draw_about(f: &mut Frame) {
     );
 }
 
-pub fn draw_message(f: &mut Frame, app: &App) {
-    let Popup::Message(msg) = &app.popup else { return };
-    let area = centered(70, 5, f);
-    f.render_widget(Clear, area);
-    f.render_widget(
-        Paragraph::new(msg.clone())
-            .block(box_block("Message — any key to close")),
-        area,
-    );
-}
 
-pub fn draw_filter_input(f: &mut Frame, app: &App) {
-    let area = centered(60, 3, f);
-    f.render_widget(Clear, area);
-    f.render_widget(
-        Paragraph::new(format!("/{}", app.filter_input))
-            .block(box_block("Filter — Enter to apply, Esc to cancel")),
-        area,
-    );
-}

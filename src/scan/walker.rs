@@ -76,7 +76,7 @@ pub fn run(req: &super::ScanRequest, tx: &Sender<ScanMsg>) -> Result<Vec<Entry>,
         if super::is_protected(root, &protected) {
             continue;
         }
-        walk_root(root, *custom, cfg, &ignore, &protected, &mut acc, tx);
+        walk_root(root, *custom, &ignore, &protected, &mut acc, tx);
     }
 
     let mut entries = build_entries(&acc, req.mode, cfg, &roots, tx);
@@ -99,16 +99,11 @@ fn ignored_name(name: &str, ignore: &HashSet<String>, custom_ignores: &[String])
 fn walk_root(
     root: &Path,
     custom: Option<&CustomPath>,
-    cfg: &Config,
     ignore: &HashSet<String>,
     protected: &[PathBuf],
     acc: &mut Acc,
     tx: &Sender<ScanMsg>,
 ) {
-    let min_age = custom.map(|c| c.min_age_days).unwrap_or(cfg.min_age_days);
-    let _ = min_age; // filtering happens in build_entries
-    let custom_ignores: Vec<String> = custom.map(|c| c.ignore.clone()).unwrap_or_default();
-
     let custom_ignores: Vec<String> = custom.map(|c| c.ignore.clone()).unwrap_or_default();
     let protected_prune: Vec<PathBuf> = protected.to_vec();
     let ignore_prune: HashSet<String> = ignore.iter().map(|s| s.to_string()).collect();
@@ -261,7 +256,6 @@ fn build_entries(
                         kind: EntryKind::Dir,
                         size: *size,
                         modified: dir_mtime.or(*newest_file),
-                        mode,
                     });
                 }
             }
@@ -272,7 +266,6 @@ fn build_entries(
                         kind: EntryKind::File,
                         size: *size,
                         modified: *mtime,
-                        mode,
                     });
                 }
             }
@@ -299,7 +292,6 @@ fn build_entries(
                             kind: EntryKind::Trash,
                             size,
                             modified: mtime.or(newest),
-                            mode,
                         });
                     } else {
                         // cache: only if stale enough
@@ -313,7 +305,6 @@ fn build_entries(
                                 kind: EntryKind::Cache,
                                 size,
                                 modified: mtime.or(newest),
-                                mode,
                             });
                         }
                     }
@@ -327,7 +318,6 @@ fn build_entries(
                                 kind: if is_trash { EntryKind::Trash } else { EntryKind::Cache },
                                 size: *size,
                                 modified: *mtime,
-                                mode,
                             });
                         }
                     }
@@ -341,7 +331,6 @@ fn build_entries(
                             kind: EntryKind::EmptyDir,
                             size: 0,
                             modified: std::fs::symlink_metadata(d).and_then(|m| m.modified()).ok(),
-                            mode,
                         });
                     }
                 }
@@ -352,7 +341,6 @@ fn build_entries(
                             kind: EntryKind::BrokenSymlink,
                             size: 0,
                             modified: None,
-                            mode,
                         });
                     }
                 }
@@ -369,7 +357,6 @@ fn build_entries(
                             kind: EntryKind::File,
                             size: *size,
                             modified: *mtime,
-                            mode,
                         });
                     }
                 }
@@ -390,7 +377,6 @@ fn build_entries(
                             kind: EntryKind::Dir,
                             size: *size,
                             modified: dir_mtime.or(*newest),
-                            mode,
                         });
                     }
                 }

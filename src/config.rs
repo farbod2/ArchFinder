@@ -115,15 +115,6 @@ impl Config {
         }
     }
 
-    pub fn save(&self) -> std::io::Result<PathBuf> {
-        let path = Self::path();
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::write(&path, toml::to_string_pretty(self).unwrap())?;
-        Ok(path)
-    }
-
     /// Built-in + user protected paths (prefix match; "/" handled separately in action_allowed).
     pub fn protected(&self) -> Vec<PathBuf> {
         let builtin = ["/boot", "/dev", "/etc", "/proc", "/sys", "/usr", "/var"];
